@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RICHGOOD - Officiel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --bg: #0c0d14; --card: #1a1b26; --gold: #f39c12; --text: #ffffff; --gray: #888; --green: #27ae60; --red: #e74c3c; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
+        
+        #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .auth-box { width: 85%; max-width: 400px; background: var(--card); padding: 25px; border-radius: 20px; border: 1px solid #333; }
+        
+        .ticker-wrap { background: #000; color: var(--gold); padding: 10px; font-size: 12px; overflow: hidden; white-space: nowrap; border-bottom: 2px solid var(--gold); }
+        .ticker { display: inline-block; animation: scroll-readable 120s linear infinite; font-weight: bold; }
+        @keyframes scroll-readable { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+
+        .fake-notif { background: #1a1b26; color: #27ae60; padding: 5px; font-size: 11px; text-align: center; border-bottom: 1px solid #333; height: 20px; overflow: hidden; }
+        .fake-scroll { animation: slideUp 3s infinite; }
+        @keyframes slideUp { 0% { transform: translateY(100%); } 10% { transform: translateY(0); } 90% { transform: translateY(0); } 100% { transform: translateY(-100%); } }
+
+        .page { display: none; padding-bottom: 120px; animation: fadeIn 0.4s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .card { background: var(--card); margin: 15px; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        .btn-gold { background: var(--gold); color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #25263a; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; outline: none; }
+        .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--gold); flex: 1; margin: 5px; }
+
+        .vip-card { background: var(--card); margin: 15px; border-radius: 15px; overflow: hidden; border: 1px solid #333; }
+        .vip-header { padding: 15px; text-align: center; color: #000; font-weight: bold; font-size: 20px; }
+        .vip-badge-big { font-size: 28px; font-weight: 900; color: var(--gold); display: block; margin: 10px 0; }
+
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #333; z-index: 1000; }
+        .nav-item { text-align: center; color: var(--gray); font-size: 11px; cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--gold); }
+        .nav-item i { font-size: 22px; display: block; margin-bottom: 4px; }
+
+        .bonus-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; font-size: 13px; }
+        #task-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:6000; padding:20px; }
+        .scrolling-info { background: var(--red); color: white; padding: 8px; font-size: 11px; width: 100%; overflow: hidden; white-space: nowrap; margin-top:10px;}
+        .scroll-text-red { display: inline-block; animation: scroll-info 15s linear infinite; }
+        @keyframes scroll-info { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <h1 style="color:var(--gold); letter-spacing:3px;">RICHGOOD</h1>
+        <div class="auth-box" id="login-form">
+            <h3 style="text-align:center;">Connexion</h3>
+            <input type="text" id="log-phone" placeholder="Téléphone">
+            <input type="password" id="log-pass" placeholder="Mot de passe">
+            <button class="btn-gold" onclick="login()">SE CONNECTER</button>
+            <p style="text-align:center; font-size:12px; margin-top:15px;" onclick="toggleAuth(true)">Nouveau ? <span style="color:var(--gold);">Créer un compte</span></p>
+        </div>
+        <div class="auth-box" id="signup-form" style="display:none;">
+            <h3 style="text-align:center;">Inscription</h3>
+            <input type="text" id="reg-phone" placeholder="Numéro Airtel">
+            <input type="password" id="reg-pass" placeholder="Mot de passe">
+            <input type="password" id="reg-pass-conf" placeholder="Confirmer mot de passe">
+            <input type="text" id="reg-ref" placeholder="Code de parrainage">
+            <button class="btn-gold" onclick="signup()">S'INSCRIRE</button>
+            <p style="text-align:center; font-size:12px; margin-top:15px;" onclick="toggleAuth(false)">Retour Connexion</p>
+        </div>
+    </div>
+
+    <div class="fake-notif">
+        <div id="live-news" class="fake-scroll">Chargement des activités...</div>
+    </div>
+
+    <div class="ticker-wrap"><div class="ticker" id="ad-ticker">Bienvenue sur RICHGOOD - La plateforme de lecture rémunérée numéro 1 en RDC.</div></div>
+
+    <div id="page-home" class="page">
+        <div style="padding: 20px; text-align:center;">
+            <p id="user-display" style="font-weight:bold; color:var(--gold);"></p>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <div class="stat-box"><span>Solde (FC)</span><h3 id="bal-h">0</h3></div>
+                <div class="stat-box"><span>Gains Jour</span><h3 id="gain-h">0</h3></div>
+            </div>
+        </div>
+        <div style="padding:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <button class="btn-gold" onclick="showPage('page-recharge')">Recharge</button>
+            <button class="btn-gold" onclick="showPage('page-withdraw')">Retrait</button>
+        </div>
+        <div style="text-align:center; margin-top:5px;">
+            <span onclick="adminSecret()" style="color:#0c0d14; font-size:10px; cursor:pointer; padding:5px;">RDNK</span>
+        </div>
+        <div style="padding: 15px;">
+            <h4 style="border-left:3px solid var(--gold); padding-left:10px;">Salle des tâches</h4>
+            <div id="task-list"></div>
+        </div>
+    </div>
+
+    <div id="page-recharge" class="page">
+        <div class="card">
+            <h3>Recharge Airtel Money</h3>
+            <p>Envoyez au : <b style="color:var(--gold);">0976515211</b> (Medard Kalonga)</p>
+            <input type="number" id="r-amt" placeholder="Montant envoyé">
+            <input type="text" id="r-id" placeholder="ID Transaction">
+            <button class="btn-gold" onclick="sendRechargeWA()">ENVOYER CAPTURE</button>
+        </div>
+    </div>
+
+    <div id="page-withdraw" class="page">
+        <div class="card">
+            <h3 style="color:var(--gold); text-align:center;">RETRAIT</h3>
+            <p style="text-align:center; font-size:12px;">Disponible : <b id="bal-w">0</b> FC</p>
+            <label style="font-size:12px;">Numéro Airtel Money</label>
+            <input type="text" id="draw-phone" readonly style="background:#111;">
+            <label style="font-size:12px;">Montant (Min: 10.000 FC)</label>
+            <input type="number" id="draw-amt" placeholder="15000" oninput="checkWithdrawBtn()">
+            <label style="font-size:12px;">Mot de passe de retrait</label>
+            <input type="password" id="draw-pass" placeholder="Votre code" oninput="checkWithdrawBtn()">
+            <button class="btn-gold" id="btn-submit-draw" style="display:none; background:var(--green); color:white;" onclick="sendWithdrawWA()">SOUMETTRE WHATSAPP</button>
+            <p id="draw-warning" style="color:var(--red); font-size:11px; text-align:center;">Min: 10.000 FC + Code requis</p>
+        </div>
+        <div class="scrolling-info"><div class="scroll-text-red">🚨 Retraits Lundi, Mercredi, Vendredi (9h00-19h00). Délai 48h. 🚨</div></div>
+    </div>
+
+    <div id="page-fonds" class="page">
+        <h2 style="text-align:center; color:var(--gold);">TABLEAU DE BORD</h2>
+        <div class="card" style="text-align:center;">
+            <p>SOLDE TOTAL</p>
+            <h1 style="color:var(--gold); font-size:32px;"><span id="bal-f">0</span> FC</h1>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; padding:10px;">
+            <div class="stat-box"><span>Aujourd'hui</span><h3 id="f-today">0</h3></div>
+            <div class="stat-box"><span>Hier</span><h3 id="f-yesterday">0</h3></div>
+            <div class="stat-box"><span>Total Gagné</span><h3 id="f-total-gain">0</h3></div>
+            <div class="stat-box"><span>Parrainages</span><h3 id="f-ref-count">0</h3></div>
+        </div>
+    </div>
+
+    <div id="page-vip" class="page">
+        <h2 style="text-align:center; color:var(--gold);">NOS CONTRATS (365 JOURS)</h2>
+        <div id="vip-list-render"></div>
+    </div>
+
+    <div id="page-invite" class="page">
+        <h2 style="text-align:center; color:var(--gold);">PARRAINAGE</h2>
+        <div class="card" style="text-align:center;">
+            <p>Votre Code d'invitation</p>
+            <h2 id="invite-code-display" style="color:var(--gold);">RG-CODE</h2>
+            <button class="btn-gold" onclick="copyInvite()">COPIER LE CODE</button>
+        </div>
+        <div id="bonus-container"></div>
+    </div>
+
+    <div id="page-mon" class="page">
+        <div class="card" style="text-align:center;">
+            <h3 id="mon-phone-display"></h3>
+            <span id="mon-level-badge" class="vip-badge-big"></span>
+        </div>
+        <div class="card">
+            <label>Numéro de retrait Airtel Money</label>
+            <input type="text" id="set-airtel" placeholder="097..." oninput="updateProfile('airtel', this.value)">
+            <label>Mot de passe de retrait</label>
+            <input type="password" id="set-draw-pass" placeholder="Code secret" oninput="updateProfile('drawPass', this.value)">
+            <button class="btn-gold" style="margin-top:10px;" onclick="alert('Sauvegardé !')">SAUVEGARDER</button>
+            <button class="btn-gold" style="margin-top:20px; background:var(--red); color:white;" onclick="location.reload()">DÉCONNEXION</button>
+        </div>
+    </div>
+
+    <div id="page-admin" class="page">
+        <div class="card" style="border:2px solid var(--red);">
+            <h2 style="color:var(--red); text-align:center;">PANNEAU RDNK</h2>
+            <input type="text" id="adm-search" placeholder="Numéro">
+            <button class="btn-gold" onclick="admLoad()">CHERCHER</button>
+            <div id="adm-edit" style="display:none; margin-top:10px;">
+                <select id="adm-lvl">
+                    <option value="STAGIAIRE">STAGIAIRE</option>
+                    <option value="G1">G1</option><option value="G2">G2</option><option value="G3">G3</option>
+                    <option value="G4">G4</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+                </select>
+                <input type="number" id="adm-bal" placeholder="Solde">
+                <button class="btn-gold" onclick="admSave()">APPLIQUER</button>
+            </div>
+            <button class="btn-gold" onclick="showPage('page-home')" style="margin-top:10px; background:#444;">RETOUR</button>
+        </div>
+    </div>
+
+    <div id="task-modal">
+        <h2 style="color:var(--gold)">Lecture Romaine</h2>
+        <div id="story-box" style="color:#ccc; line-height:1.6;"></div>
+        <p id="timer" style="color:var(--red); font-weight:bold;"></p>
+        <button id="claim-btn" class="btn-gold" style="display:none;" onclick="finishTask()">RÉCUPÉRER GAIN</button>
+    </div>
+
+    <nav class="nav-bar" id="bottom-nav" style="display:none;">
+        <div class="nav-item active" onclick="showPage('page-home', this)"><i class="fas fa-home"></i>Maison</div>
+        <div class="nav-item" onclick="showPage('page-vip', this)"><i class="fas fa-crown"></i>VIP</div>
+        <div class="nav-item" onclick="showPage('page-invite', this)"><i class="fas fa-users"></i>Inviter</div>
+        <div class="nav-item" onclick="showPage('page-fonds', this)"><i class="fas fa-chart-line"></i>Fonds</div>
+        <div class="nav-item" onclick="showPage('page-mon', this)"><i class="fas fa-user"></i>Mon</div>
+    </nav>
+
+    <script>
+        let db = JSON.parse(localStorage.getItem('richgood_final')) || { users: {} };
+        let cur = null;
+        let admC = 0;
+
+        const vips = {
+            'STAGIAIRE': { price: 0, daily: 1000, tasks: 5, color: '#888', b: 0 },
+            'G1': { price: 40000, daily: 2000, tasks: 5, color: '#3498db', b: 2500 },
+            'G2': { price: 140000, daily: 7000, tasks: 10, color: '#9b59b6', b: 8000 },
+            'G3': { price: 350000, daily: 20000, tasks: 20, color: '#f1c40f', b: 20000 },
+            'G4': { price: 880000, daily: 45000, tasks: 40, color: '#e67e22', b: 50000 },
+            'P1': { price: 1800000, daily: 65000, tasks: 50, color: '#e74c3c', b: 100000 },
+            'P2': { price: 5800000, daily: 150000, tasks: 70, color: '#2c3e50', b: 250000 },
+            'P3': { price: 10000000, daily: 300000, tasks: 100, color: '#000', b: 500000 }
+        };
+
+        function save() { localStorage.setItem('richgood_final', JSON.stringify(db)); }
+
+        const fakeNames = ["097","099","081","082","083","090"];
+        function runFakeNews() {
+            const news = [
+                `Airtel Money: ${fakeNames[Math.floor(Math.random()*6)]}*** a retiré ${Math.floor(Math.random()*90 + 10)}000 FC`,
+                `Félicitations: ${fakeNames[Math.floor(Math.random()*6)]}*** a rejoint le contrat G3 !`,
+                `Félicitations: ${fakeNames[Math.floor(Math.random()*6)]}*** a rejoint le contrat G2 !`,
+                `Airtel Money: ${fakeNames[Math.floor(Math.random()*6)]}*** a retiré 120.000 FC`,
+                `Nouveau Membre: ${fakeNames[Math.floor(Math.random()*6)]}*** vient de s'inscrire.`
+            ];
+            document.getElementById('live-news').innerText = news[Math.floor(Math.random()*news.length)];
+        }
+        setInterval(runFakeNews, 4000);
+
+        function signup() {
+            let p = document.getElementById('reg-phone').value;
+            let pass = document.getElementById('reg-pass').value;
+            let conf = document.getElementById('reg-pass-conf').value;
+            let ref = document.getElementById('reg-ref').value;
+            if(!p || !pass) return alert("Remplir tout");
+            if(pass !== conf) return alert("Les mots de passe ne sont pas identiques");
+            db.users[p] = { phone: p, pass: pass, balance: 0, level: 'STAGIAIRE', airtel: p, drawPass: '', joinDate: new Date().getTime(), tasksDone: 0, lastDate: '', dayGain: 0, yesterdayGain: 0, totalGain: 0, refBy: ref };
+            save(); alert("Compte créé !"); toggleAuth(false);
+        }
+
+        function login() {
+            let p = document.getElementById('log-phone').value;
+            let pass = document.getElementById('log-pass').value;
+            if(db.users[p] && db.users[p].pass === pass) {
+                cur = db.users[p];
+                document.getElementById('auth-overlay').style.display='none';
+                document.getElementById('bottom-nav').style.display='flex';
+                showPage('page-home');
+            } else { alert("Erreur"); }
+        }
+
+        function updateUI() {
+            if(!cur) return;
+            document.getElementById('bal-h').innerText = cur.balance.toLocaleString();
+            document.getElementById('bal-f').innerText = cur.balance.toLocaleString();
+            document.getElementById('bal-w').innerText = cur.balance.toLocaleString();
+            document.getElementById('gain-h').innerText = cur.dayGain.toLocaleString();
+            document.getElementById('f-today').innerText = cur.dayGain.toLocaleString();
+            document.getElementById('f-yesterday').innerText = cur.yesterdayGain.toLocaleString();
+            document.getElementById('f-total-gain').innerText = cur.totalGain.toLocaleString();
+            document.getElementById('draw-phone').value = cur.airtel;
+            let refs = Object.values(db.users).filter(u => u.refBy === ("RG-" + cur.phone)).length;
+            document.getElementById('f-ref-count').innerText = refs;
+            document.getElementById('user-display').innerText = "ID: " + cur.phone;
+            document.getElementById('invite-code-display').innerText = "RG-" + cur.phone;
+            document.getElementById('mon-phone-display').innerText = cur.phone;
+            document.getElementById('mon-level-badge').innerText = "NIVEAU " + cur.level;
+            const conf = vips[cur.level];
+            const taskDiv = document.getElementById('task-list');
+            let isStagExpired = (cur.level === 'STAGIAIRE' && (new Date().getTime() - cur.joinDate) > 2*24*60*60*1000);
+            if(isStagExpired) { taskDiv.innerHTML = "<p style='color:red'>Essai fini. Activez un VIP.</p>"; } 
+            else {
+                let rem = conf.tasks - cur.tasksDone;
+                let gainT = Math.floor(conf.daily / conf.tasks);
+                taskDiv.innerHTML = `<div class="card" style="text-align:center;"><p>Tâches : <b>${cur.tasksDone}/${conf.tasks}</b></p>${rem > 0 ? `<button class="btn-gold" onclick="startT()">LIRE UNE HISTOIRE (${gainT} FC)</button>` : `<p style="color:var(--green)">✓ Terminé</p>`}</div>`;
+            }
+        }
+
+        function startT() {
+            document.getElementById('task-modal').style.display='block';
+            document.getElementById('story-box').innerText = "La fortune sourit à ceux qui sont patients et déterminés...";
+            let s = 10;
+            let t = setInterval(() => {
+                document.getElementById('timer').innerText = "Patientez : " + s + "s";
+                s--;
+                if(s < 0) { clearInterval(t); document.getElementById('claim-btn').style.display='block'; }
+            }, 1000);
+        }
+
+        function finishTask() {
+            const conf = vips[cur.level];
+            let gain = Math.floor(conf.daily / conf.tasks);
+            cur.balance += gain; cur.dayGain += gain; cur.totalGain += gain; cur.tasksDone++;
+            save(); document.getElementById('task-modal').style.display='none';
+            document.getElementById('claim-btn').style.display='none'; updateUI();
+        }
+
+        function checkWithdrawBtn() {
+            const amt = document.getElementById('draw-amt').value;
+            const pass = document.getElementById('draw-pass').value;
+            const btn = document.getElementById('btn-submit-draw');
+            if(amt >= 10000 && amt <= cur.balance && pass === cur.drawPass && cur.drawPass !== "") { btn.style.display = "block"; } 
+            else { btn.style.display = "none"; }
+        }
+
+        function sendWithdrawWA() {
+            const amt = parseInt(document.getElementById('draw-amt').value);
+            // DIMINUTION AUTOMATIQUE DU SOLDE
+            cur.balance -= amt;
+            save();
+            updateUI();
+            const text = `💰 *RETRAIT RICHGOOD*\nNuméro: ${cur.airtel}\nMontant: ${amt} FC\nID: ${cur.phone}\n(Solde déjà débité sur l'app)`;
+            window.open(`https://wa.me/243900427509?text=${encodeURIComponent(text)}`);
+            alert("Votre solde a été débité. Paiement en cours de traitement.");
+        }
+
+        function sendRechargeWA() {
+            const amt = document.getElementById('r-amt').value;
+            const id = document.getElementById('r-id').value;
+            const text = `🔌 *RECHARGE RICHGOOD*\nID: ${cur.phone}\nMontant: ${amt} FC\nID Trans: ${id}`;
+            window.open(`https://wa.me/243900427509?text=${encodeURIComponent(text)}`);
+        }
+
+        function adminSecret() { admC++; if(admC >= 10) { showPage('page-admin'); admC=0; } }
+        
+        function admLoad() {
+            let p = document.getElementById('adm-search').value;
+            if(db.users[p]) {
+                document.getElementById('adm-edit').style.display='block';
+                document.getElementById('adm-lvl').value = db.users[p].level;
+                document.getElementById('adm-bal').value = db.users[p].balance;
+                window.admT = p;
+            }
+        }
+        function admSave() {
+            let u = db.users[window.admT];
+            u.level = document.getElementById('adm-lvl').value;
+            u.balance = parseInt(document.getElementById('adm-bal').value);
+            save(); alert("Appliqué !"); updateUI();
+        }
+
+        function renderVIP() {
+            const container = document.getElementById('vip-list-render');
+            Object.keys(vips).forEach(k => { if(k === 'STAGIAIRE') return;
+                const v = vips[k];
+                container.innerHTML += `<div class="vip-card">
+                    <div class="vip-header" style="background:${v.color}; color:${k==='P3'?'#fff':'#000'}">${k} - 365 JRS</div>
+                    <div class="vip-body">
+                        <h2 style="color:var(--gold)">${v.price.toLocaleString()} FC</h2>
+                        <p style="font-size:12px;">Gain Jour: <b>${v.daily.toLocaleString()} FC</b> | Tâches: <b>${v.tasks}</b></p>
+                        <p style="font-size:12px; color:var(--green);">Gains Annuels: ${(v.daily*365).toLocaleString()} FC</p>
+                        <button class="btn-gold" style="margin-top:5px;" onclick="showPage('page-recharge')">REJOINDRE</button>
+                    </div>
+                </div>`;
+            });
+        }
+
+        function renderBonus() {
+            const container = document.getElementById('bonus-container');
+            const mul = [{n: "G1", m: 1}, {n: "G2 (+10%)", m: 1.1}, {n: "G3 (+20%)", m: 1.2}];
+            mul.forEach(x => {
+                let h = `<div class="card"><h4 style="color:var(--gold);">🎁 Bonus Recruteur ${x.n}</h4>`;
+                Object.keys(vips).forEach(k => { if(vips[k].b > 0) h += `<div class="bonus-row"><span>${k}</span> <b>${Math.round(vips[k].b * x.m).toLocaleString()} FC</b></div>`; });
+                container.innerHTML += h + `</div>`;
+            });
+        }
+
+        function updateProfile(k, v) { cur[k] = v; save(); }
+        function copyInvite() { navigator.clipboard.writeText("RG-" + cur.phone); alert("Copié !"); }
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(el) { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); }
+            updateUI();
+        }
+        function toggleAuth(s) { document.getElementById('login-form').style.display = s ? 'none' : 'block'; document.getElementById('signup-form').style.display = s ? 'block' : 'none'; }
+        window.onload = () => { renderVIP(); renderBonus(); updateUI(); runFakeNews(); };
+    </script>
+</body>
+</html>
