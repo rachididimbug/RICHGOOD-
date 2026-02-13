@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RICHGOOD - Officiel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
     <style>
         :root { --bg: #0c0d14; --card: #1a1b26; --gold: #f39c12; --text: #ffffff; --gray: #888; --green: #27ae60; --red: #e74c3c; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
@@ -198,7 +202,20 @@
     </nav>
 
     <script>
-        let db = JSON.parse(localStorage.getItem('richgood_final')) || { users: {} };
+        // CONFIGURATION FIREBASE (RELAIS RDC)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3jkfC3KXpz_vfgcPiS9Zhp70",
+            authDomain: "richgood-11860.firebaseapp.com",
+            databaseURL: "https://richgood-11860-default-rtdb.firebaseio.com",
+            projectId: "richgood-11860",
+            storageBucket: "richgood-11860.firebasestorage.app",
+            messagingSenderId: "735917851997",
+            appId: "1:735917851997:web:fa13b9e2b5133"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const rdb = firebase.database();
+
         let cur = null;
         let admC = 0;
 
@@ -213,8 +230,6 @@
             'P3': { price: 10000000, daily: 300000, tasks: 100, color: '#000', b: 500000 }
         };
 
-        function save() { localStorage.setItem('richgood_final', JSON.stringify(db)); }
-
         const fakeNames = ["097","099","081","082","083","090"];
         function runFakeNews() {
             const news = [
@@ -228,6 +243,7 @@
         }
         setInterval(runFakeNews, 4000);
 
+        // SYNC FIREBASE
         function signup() {
             let p = document.getElementById('reg-phone').value;
             let pass = document.getElementById('reg-pass').value;
@@ -235,19 +251,26 @@
             let ref = document.getElementById('reg-ref').value;
             if(!p || !pass) return alert("Remplir tout");
             if(pass !== conf) return alert("Les mots de passe ne sont pas identiques");
-            db.users[p] = { phone: p, pass: pass, balance: 0, level: 'STAGIAIRE', airtel: p, drawPass: '', joinDate: new Date().getTime(), tasksDone: 0, lastDate: '', dayGain: 0, yesterdayGain: 0, totalGain: 0, refBy: ref };
-            save(); alert("Compte créé !"); toggleAuth(false);
+            
+            let newUser = { phone: p, pass: pass, balance: 0, level: 'STAGIAIRE', airtel: p, drawPass: '', joinDate: new Date().getTime(), tasksDone: 0, lastDate: '', dayGain: 0, yesterdayGain: 0, totalGain: 0, refBy: ref };
+            
+            rdb.ref('users/' + p).set(newUser).then(() => {
+                alert("Compte créé avec succès !"); toggleAuth(false);
+            });
         }
 
         function login() {
             let p = document.getElementById('log-phone').value;
             let pass = document.getElementById('log-pass').value;
-            if(db.users[p] && db.users[p].pass === pass) {
-                cur = db.users[p];
-                document.getElementById('auth-overlay').style.display='none';
-                document.getElementById('bottom-nav').style.display='flex';
-                showPage('page-home');
-            } else { alert("Erreur"); }
+            rdb.ref('users/' + p).once('value').then((s) => {
+                let user = s.val();
+                if(user && user.pass === pass) {
+                    cur = user;
+                    document.getElementById('auth-overlay').style.display='none';
+                    document.getElementById('bottom-nav').style.display='flex';
+                    showPage('page-home');
+                } else { alert("Numéro ou mot de passe incorrect"); }
+            });
         }
 
         function updateUI() {
@@ -260,15 +283,22 @@
             document.getElementById('f-yesterday').innerText = cur.yesterdayGain.toLocaleString();
             document.getElementById('f-total-gain').innerText = cur.totalGain.toLocaleString();
             document.getElementById('draw-phone').value = cur.airtel;
-            let refs = Object.values(db.users).filter(u => u.refBy === ("RG-" + cur.phone)).length;
-            document.getElementById('f-ref-count').innerText = refs;
+            
+            rdb.ref('users').once('value').then((s) => {
+                let all = s.val() || {};
+                let count = Object.values(all).filter(u => u.refBy === ("RG-" + cur.phone)).length;
+                document.getElementById('f-ref-count').innerText = count;
+            });
+
             document.getElementById('user-display').innerText = "ID: " + cur.phone;
             document.getElementById('invite-code-display').innerText = "RG-" + cur.phone;
             document.getElementById('mon-phone-display').innerText = cur.phone;
             document.getElementById('mon-level-badge').innerText = "NIVEAU " + cur.level;
+            
             const conf = vips[cur.level];
             const taskDiv = document.getElementById('task-list');
             let isStagExpired = (cur.level === 'STAGIAIRE' && (new Date().getTime() - cur.joinDate) > 2*24*60*60*1000);
+            
             if(isStagExpired) { taskDiv.innerHTML = "<p style='color:red'>Essai fini. Activez un VIP.</p>"; } 
             else {
                 let rem = conf.tasks - cur.tasksDone;
@@ -292,8 +322,11 @@
             const conf = vips[cur.level];
             let gain = Math.floor(conf.daily / conf.tasks);
             cur.balance += gain; cur.dayGain += gain; cur.totalGain += gain; cur.tasksDone++;
-            save(); document.getElementById('task-modal').style.display='none';
-            document.getElementById('claim-btn').style.display='none'; updateUI();
+            
+            rdb.ref('users/' + cur.phone).update(cur).then(() => {
+                document.getElementById('task-modal').style.display='none';
+                document.getElementById('claim-btn').style.display='none'; updateUI();
+            });
         }
 
         function checkWithdrawBtn() {
@@ -306,13 +339,13 @@
 
         function sendWithdrawWA() {
             const amt = parseInt(document.getElementById('draw-amt').value);
-            // DIMINUTION AUTOMATIQUE DU SOLDE
             cur.balance -= amt;
-            save();
-            updateUI();
-            const text = `💰 *RETRAIT RICHGOOD*\nNuméro: ${cur.airtel}\nMontant: ${amt} FC\nID: ${cur.phone}\n(Solde déjà débité sur l'app)`;
-            window.open(`https://wa.me/243900427509?text=${encodeURIComponent(text)}`);
-            alert("Votre solde a été débité. Paiement en cours de traitement.");
+            rdb.ref('users/' + cur.phone).update({balance: cur.balance}).then(() => {
+                updateUI();
+                const text = `💰 *RETRAIT RICHGOOD*\nNuméro: ${cur.airtel}\nMontant: ${amt} FC\nID: ${cur.phone}\n(Solde déjà débité sur l'app)`;
+                window.open(`https://wa.me/243900427509?text=${encodeURIComponent(text)}`);
+                alert("Votre solde a été débité. Paiement en cours de traitement.");
+            });
         }
 
         function sendRechargeWA() {
@@ -322,31 +355,42 @@
             window.open(`https://wa.me/243900427509?text=${encodeURIComponent(text)}`);
         }
 
+        // --- ADMIN FONCTIONNELLE (RECHERCHE PARTOUT EN RDC) ---
         function adminSecret() { admC++; if(admC >= 10) { showPage('page-admin'); admC=0; } }
         
         function admLoad() {
             let p = document.getElementById('adm-search').value;
-            if(db.users[p]) {
-                document.getElementById('adm-edit').style.display='block';
-                document.getElementById('adm-lvl').value = db.users[p].level;
-                document.getElementById('adm-bal').value = db.users[p].balance;
-                window.admT = p;
-            }
+            rdb.ref('users/' + p).once('value').then((s) => {
+                let user = s.val();
+                if(user) {
+                    document.getElementById('adm-edit').style.display='block';
+                    document.getElementById('adm-lvl').value = user.level;
+                    document.getElementById('adm-bal').value = user.balance;
+                    window.admT = p;
+                    alert("Employé trouvé !");
+                } else { alert("Ce numéro n'existe pas dans la base de données."); }
+            });
         }
+
         function admSave() {
-            let u = db.users[window.admT];
-            u.level = document.getElementById('adm-lvl').value;
-            u.balance = parseInt(document.getElementById('adm-bal').value);
-            save(); alert("Appliqué !"); updateUI();
+            let p = window.admT;
+            let nL = document.getElementById('adm-lvl').value;
+            let nB = parseInt(document.getElementById('adm-bal').value);
+            
+            rdb.ref('users/' + p).update({ level: nL, balance: nB }).then(() => {
+                alert("Modifications appliquées sur le serveur !"); 
+                if(cur && cur.phone === p) { cur.level = nL; cur.balance = nB; updateUI(); }
+            });
         }
 
         function renderVIP() {
             const container = document.getElementById('vip-list-render');
+            container.innerHTML = "";
             Object.keys(vips).forEach(k => { if(k === 'STAGIAIRE') return;
                 const v = vips[k];
                 container.innerHTML += `<div class="vip-card">
                     <div class="vip-header" style="background:${v.color}; color:${k==='P3'?'#fff':'#000'}">${k} - 365 JRS</div>
-                    <div class="vip-body">
+                    <div class="vip-body" style="padding:15px; text-align:center;">
                         <h2 style="color:var(--gold)">${v.price.toLocaleString()} FC</h2>
                         <p style="font-size:12px;">Gain Jour: <b>${v.daily.toLocaleString()} FC</b> | Tâches: <b>${v.tasks}</b></p>
                         <p style="font-size:12px; color:var(--green);">Gains Annuels: ${(v.daily*365).toLocaleString()} FC</p>
@@ -358,6 +402,7 @@
 
         function renderBonus() {
             const container = document.getElementById('bonus-container');
+            container.innerHTML = "";
             const mul = [{n: "G1", m: 1}, {n: "G2 (+10%)", m: 1.1}, {n: "G3 (+20%)", m: 1.2}];
             mul.forEach(x => {
                 let h = `<div class="card"><h4 style="color:var(--gold);">🎁 Bonus Recruteur ${x.n}</h4>`;
@@ -366,16 +411,23 @@
             });
         }
 
-        function updateProfile(k, v) { cur[k] = v; save(); }
+        function updateProfile(k, v) { 
+            cur[k] = v; 
+            rdb.ref('users/' + cur.phone).update({ [k]: v });
+        }
+
         function copyInvite() { navigator.clipboard.writeText("RG-" + cur.phone); alert("Copié !"); }
+
         function showPage(id, el) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             if(el) { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); }
             updateUI();
         }
+
         function toggleAuth(s) { document.getElementById('login-form').style.display = s ? 'none' : 'block'; document.getElementById('signup-form').style.display = s ? 'block' : 'none'; }
-        window.onload = () => { renderVIP(); renderBonus(); updateUI(); runFakeNews(); };
+        
+        window.onload = () => { renderVIP(); renderBonus(); runFakeNews(); };
     </script>
 </body>
 </html>
